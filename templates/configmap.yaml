@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: catalogue
+  name: user
   namespace: roboshop
   labels:
-    component: catalogue
+    component: user
     project: roboshop
     tier: app
 data:
