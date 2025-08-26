@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: catalogue
+  name: user
   namespace: roboshop
   # deployment labels
   labels:
-    component: catalogue
+    component: user
     project: roboshop
     tier: app
 spec:
@@ -13,19 +13,19 @@ spec:
   # These are the labels replica set use to create pod replicas, this should match pod labels
   selector:
     matchLabels:
-      component: catalogue
+      component: user
       project: roboshop
       tier: app
   # This is pod definition
   template:
     metadata:
       labels:
-        component: catalogue
+        component: user
         project: roboshop
         tier: app
     spec:
       containers:
-      - name: catalogue
+      - name: user
         image: "{{ .Values.deployment.imageURL}}:{{ .Values.deployment.imageVersion }}"
         command: ["sh", "-c", "echo 'failure' && exit 1"]
         resources:
@@ -37,4 +37,4 @@ spec:
             memory: "256Mi"
         envFrom:
         - configMapRef:
-            name: catalogue
+            name: user
