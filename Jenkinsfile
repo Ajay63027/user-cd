@@ -1,5 +1,7 @@
 pipeline {
-    agent { label 'AGENT-1' }
+    agent  {
+        label 'AGENT-1'
+    }
     environment { 
         REGION = "us-east-1"
         ACC_ID = "169189304039"
@@ -14,12 +16,12 @@ pipeline {
         string(name: 'appVersion', description: 'Image version of the application')
         choice(name: 'deploy_to', choices: ['dev', 'qa', 'prod'], description: 'Pick the Environment')
     }
-
+    // Build
     stages {
         stage('Deploy') {
             steps {
                 script {
-                    withAWS(credentials: 'aws-creds', region: "${REGION}") {
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
                         sh """
                             aws eks update-kubeconfig --region $REGION --name "$PROJECT-${params.deploy_to}"
                             kubectl get nodes
@@ -31,54 +33,44 @@ pipeline {
                 }
             }
         }
-
-        stage('Check Rollout') {
-            steps {
-                script {
-                    withAWS(credentials: 'aws-creds', region: "${REGION}") {
-                        def deploymentStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/$COMPONENT --timeout=60s -n $PROJECT || echo FAILED").trim()
+        stage('Check Status'){
+            steps{
+                script{
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                        def deploymentStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/user --timeout=30s -n $PROJECT || echo FAILED").trim()
                         if (deploymentStatus.contains("successfully rolled out")) {
-                            echo "Deployment Success ✅"
+                            echo "Deployment is success"
                         } else {
-                            sh "helm rollback $COMPONENT -n $PROJECT"
-                            error "Deployment failed ❌, rollback triggered"
+                            sh """
+                                helm rollback $COMPONENT -n $PROJECT
+                                sleep 20
+                            """
+                            def rollbackStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/user --timeout=30s -n $PROJECT || echo FAILED").trim()
+                            if (rollbackStatus.contains("successfully rolled out")) {
+                                error "Deployment is Failure, Rollback Success"
+                            }
+                            else{
+                                error "Deployment is Failure, Rollback Failure. Application is not running"
+                            }
                         }
+
                     }
                 }
             }
         }
-
-        stage('Functional Testing') {
-            when { expression { params.deploy_to == "dev" } }
-            steps { echo "Run functional test cases" }
-        }
-
-        stage('Integration Testing') {
-            when { expression { params.deploy_to == "qa" } }
-            steps { echo "Run integration test cases" }
-        }
-
-        stage('PROD Deploy Approval') {
-            when { expression { params.deploy_to == "prod" } }
-            steps {
-                script {
-                    withAWS(credentials: 'aws-creds', region: "${REGION}") {
-                        sh """
-                            echo "check CR, approvals, deployment window"
-                            echo "then trigger PROD deploy"
-                        """
-                    }
-                }
-            }
-        }
+        
     }
 
     post { 
         always { 
-            echo 'Cleaning up workspace...'
+            echo 'I will always say Hello again!'
             deleteDir()
         }
-        success { echo 'Pipeline Success 🎉' }
-        failure { echo 'Pipeline Failed ❌' }
+        success { 
+            echo 'Hello Success'
+        }
+        failure { 
+            echo 'Hello Failure'
+        }
     }
 }
