@@ -18,6 +18,31 @@ pipeline {
     }
     // Build
     stages {
+        stage('Check Status'){
+            steps{
+                script{
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                        def deploymentStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/user --timeout=30s -n $PROJECT || echo FAILED").trim()
+                        if (deploymentStatus.contains("successfully rolled out")) {
+                            echo "Deployment is success"
+                        } else {
+                            sh """
+                                helm rollback $COMPONENT -n $PROJECT
+                                sleep 20
+                            """
+                            def rollbackStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/user --timeout=30s -n $PROJECT || echo FAILED").trim()
+                            if (rollbackStatus.contains("successfully rolled out")) {
+                                error "Deployment is Failure, Rollback Success"
+                            }
+                            else{
+                                error "Deployment is Failure, Rollback Failure. Application is not running"
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
         stage('Deploy') {
             steps {
                 script {
@@ -33,32 +58,47 @@ pipeline {
                 }
             }
         }
-        stage('Check Status'){
-            steps{
-                script{
-                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
-                        def deploymentStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/catalogue --timeout=30s -n $PROJECT || echo FAILED").trim()
-                        if (deploymentStatus.contains("successfully rolled out")) {
-                            echo "Deployment is success"
-                        } else {
-                            sh """
-                                helm rollback $COMPONENT -n $PROJECT
-                                sleep 20
-                            """
-                            def rollbackStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/catalogue --timeout=30s -n $PROJECT || echo FAILED").trim()
-                            if (rollbackStatus.contains("successfully rolled out")) {
-                                error "Deployment is Failure, Rollback Success"
-                            }
-                            else{
-                                error "Deployment is Failure, Rollback Failure. Application is not running"
-                            }
-                        }
 
+        
+        // API Testing
+        stage('Functional Testing'){
+            when{
+                expression { params.deploy_to = "dev" }
+            }
+             steps{
+                script{
+                    echo "Run functional test cases"
+                }
+            }
+        }
+        // All components testing
+        stage('Integration Testing'){
+            when{
+                expression { params.deploy_to = "qa" }
+            }
+             steps{
+                script{
+                    echo "Run Integration test cases"
+                }
+            }
+        }
+        stage('PROD Deploy') {
+            when{
+                expression { params.deploy_to = "prod" }
+            }
+            steps {
+                script {
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                        sh """
+                            echo "get cr number"
+                            echo "check with in the deployment window"
+                            echo "is CR approved"
+                            echo "trigger PROD deploy"
+                        """
                     }
                 }
             }
         }
-        
     }
 
     post { 
