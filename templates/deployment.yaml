@@ -27,7 +27,6 @@ spec:
       containers:
       - name: user
         image: "{{ .Values.deployment.imageURL}}:{{ .Values.deployment.imageVersion }}"
-        command: ["sh", "-c", "echo 'failure' && exit 1"]
         resources:
           requests:
             cpu: "50m"
